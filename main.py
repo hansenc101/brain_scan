@@ -16,10 +16,11 @@ import torch
 #%% Load Data and Prepare for Training
 # Load the image
 dims = [28, 28]
-image = torch.randn(1, dims[0], dims[1]) # A 28x28 random greyscale image
+n_channels = 1 # 1 for greyscale, 3 for rgb; default is 1 in ImageNet
+image = torch.randn(n_channels, dims[0], dims[1]) # A 28x28 random greyscale image
 
 #%% Create the neural network model 
-model = IN.ImageNet(dims)
+model = IN.ImageNet(dims,n_channels=n_channels)
 
 # Make a prediction
 output = model(image)

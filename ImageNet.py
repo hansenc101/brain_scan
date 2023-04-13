@@ -18,19 +18,16 @@ import FeedForwardNeuralNet as ffnet
     perform the classification of the images. 
 """
 class ImageNet(torch.nn.Module):
-    def __init__(self, input_dims): # config for wandb tuning dropout
+    def __init__(self, input_dims, n_channels=1): # config for wandb tuning dropout
         super(ImageNet, self).__init__()
         self.dropout = 0.1
         self.kernel_size = 4 # We are only using square kernels
-        self.kernel = [self.kernel_size, self.kernel_size]
+        self.kernel = [self.kernel_size, self.kernel_size] # nxn kernel
         self.stride = 1
-        self.n_channels = 1 # 1 for grayscale or 3 for rgb
+        self.n_channels = n_channels # 1 for grayscale or 3 for rgb
         self.height = input_dims[0] # input image height
         self.width = input_dims[1] # input image width
-        self.height_top_pad=0
-        self.height_bottom_pad=0
-        self.width_top_pad = 0
-        self.width_bottom_pad = 0
+        self.pad = [0,0,0,0] # top, bottom, left, right padding
         conv_channels = 1
         
         # input convolutional layer
@@ -38,14 +35,14 @@ class ImageNet(torch.nn.Module):
                                kernel_size=self.kernel, stride=1, bias=True)
 
         # output vector size of previous layer -> input vector to next layer
-        self.height = (self.height + self.height_top_pad + self.height_bottom_pad - self.kernel_size) /self.stride + 1
-        self.width = (self.width + self.width_top_pad + self.width_bottom_pad - self.kernel_size) /self.stride + 1 
+        self.height = (self.height + self.pad[0] + self.pad[1] - self.kernel_size) /self.stride + 1
+        self.width = (self.width + self.pad[2] + self.pad[3] - self.kernel_size) /self.stride + 1 
         self.output_shape = self.width*self.height
         
         # pooling layer
         self.pool1 = nn.MaxPool2d(kernel_size=self.kernel, stride=self.stride)
-        self.height = (self.height + self.height_top_pad + self.height_bottom_pad - self.kernel_size) /self.stride + 1
-        self.width = (self.width + self.width_top_pad + self.width_bottom_pad - self.kernel_size) /self.stride + 1 
+        self.height = (self.height + self.pad[0] + self.pad[1] - self.kernel_size) /self.stride + 1
+        self.width = (self.width + self.pad[2] + self.pad[3] - self.kernel_size) /self.stride + 1 
         self.output_shape = self.width*self.height
         
         self.ffnet = ffnet.NeuralNetwork(n_feature=int(self.output_shape), n_hidden_nodes=40, 
