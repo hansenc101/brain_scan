@@ -8,15 +8,15 @@ Created on Sat Mar 25 12:11:48 2023
 from torch import optim, nn, stack
 import torch
 import pytorch_lightning as pl
-import ConvNet1D as CN1D
+import ImageNet as IN
 
 # Computational Code goes into LightningModule
 class StockLightningModule(pl.LightningModule):
-    def __init__(self, config, days): # model architecture into __init()__
+    def __init__(self, input_dims, n_channels=1, learning_rate=1e-4): # model architecture into __init()__
         super().__init__()
         # our untrained neural network
-        self.net = CN1D.ConvNet1D(config, days)
-        self.lr = config.lr # wandb tuning for learning rate
+        self.net = IN.ImageNet(input_dims=input_dims, n_channels=n_channels)
+        self.lr = learning_rate
         self.val_loss_data = []
         self.train_loss_data = []
         self.test_loss_data = []
@@ -32,22 +32,22 @@ class StockLightningModule(pl.LightningModule):
     # Training logic goes into training_step LightningModule hook
     def training_step(self, train_batch, batch_idx):
         x, y = train_batch
+        x=x.float().unsqueeze(1)
+        y=y.float()
         output = self.net(x)
-        loss = nn.functional.mse_loss(output,y.view(y.size(0),-1))
+        loss = nn.functional.mse_loss(output,y.unsqueeze(1))
         self.log('train_loss', loss, on_epoch=True, prog_bar=True)
-        #print("===\ntrain loss : ", loss,"\n===")
         self.train_loss_data.append(loss)
         return loss
     
     # Validation logic goes into validation_step LightningModule hook
     def validation_step(self, val_batch, batch_idx):
         x, y = val_batch
+        x=x.float().unsqueeze(1)
+        y=y.float()
         output = self.net(x)
-        loss = nn.functional.mse_loss(output,y.view(y.size(0),-1))
-        # calling this from validation_step will automatically accumulate
-        # and log at the end of the epoch
+        loss = nn.functional.mse_loss(output,y.unsqueeze(1))
         self.log('val_loss', loss)
-        #print("===\nval loss : ", loss,"\n===")
         self.val_loss_data.append(loss)
     
     # Optimizers go into configure_optimizers LightningModule hook
@@ -59,21 +59,22 @@ class StockLightningModule(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         # This is the test loop
         x, y = batch
-        #x = x.view(x.size(0),-1)
+        x=x.float()
+        y=y.float()
         output = self.net(x)
-        loss = nn.functional.mse_loss(output,y.view(y.size(0),-1))
+        loss = nn.functional.mse_loss(output,y)
         self.log("test_loss", loss)
         self.test_loss_data.append(loss)
         self.test_y_data.append(y)
         self.test_output_data.append(output)
     
-    def get_train_data(self):
+    def get_train_loss_data(self):
         return stack(self.train_loss_data)
     
-    def get_val_data(self):
+    def get_val_loss_data(self):
         return stack(self.val_loss_data)
     
-    def get_test_data(self):
+    def get_test_loss_data(self):
         return stack(self.test_loss_data)
 
     def get_test_y_data(self):

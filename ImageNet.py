@@ -45,8 +45,10 @@ class ImageNet(torch.nn.Module):
         self.width = (self.width + self.pad[2] + self.pad[3] - self.kernel_size) /self.stride + 1 
         self.output_shape = self.width*self.height
         
-        self.ffnet = ffnet.NeuralNetwork(n_feature=int(self.output_shape), n_hidden_nodes=40, 
-                                         n_hidden_layers=5, n_output=1, 
+        print('=====\n Input Layer size: ', int(self.output_shape), '\n======\n')
+        
+        self.ffnet = ffnet.NeuralNetwork(n_feature=int(self.output_shape), n_hidden_nodes=100, 
+                                         n_hidden_layers=1, n_output=1, 
                                          dropout_rate=self.dropout)
                
     def forward(self, x):
