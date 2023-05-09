@@ -82,19 +82,5 @@ class StockLightningModule(pl.LightningModule):
     def get_test_output_data(self):
         return self.test_output_data
     
-    def save_model(self, name):
-        # Open a file called "n_samps" in write mode
-        with open("n_inputs", "w") as file:
-            # Write the integer to the file as a string
-            file.write(str(self.days)) #save number of inputs
-
-        path = name + '.pth'
-        torch.save(self.net.state_dict(), path)
-        
-""" I need to determine how to save and load the data
-    def load_model(self, name):
-        path = name + '.pth'
-        model = 
-        model.load_state_dict(torch.load('model.pth'))
-        model.eval()  # Set the model to evaluation mode if needed
-"""
+    def save_model(self, file_name='Model.pt'):
+        torch.save(self.net, file_name)
