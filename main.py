@@ -29,7 +29,7 @@ y = np.concatenate((y_tumors, y_no_tumors)) # All train y targets
 scan_dataset = tu.ImageDataset(tumors,y)
 
 # set batch_size to 0 to use entire dataset as batch
-batch_size = 32
+batch_size = 24
 brainScanModule = tu.ScanDataModule(scan_dataset, batch_size=batch_size) 
 train_dataloader = brainScanModule.train_dataloader()
 val_dataloader = brainScanModule.val_dataloader()
@@ -37,11 +37,11 @@ test_dataloader = brainScanModule.test_dataloader()
 
 #%% Create the model
 dims = [512, 512] # pixel dimension of the brain scans
-model = LL.StockLightningModule(input_dims=dims, n_channels=1, learning_rate=1e-4)
+model = LL.StockLightningModule(input_dims=dims, n_channels=1, learning_rate=3e-4)
 
 #%% Prepare system - determine if using gpu or cpu
 #used_gpu = False
-num_epochs = 3
+num_epochs = 2
 if torch.cuda.is_available():
   #used_gpu = True
   print('\n--Using GPU for training--\n')
@@ -49,11 +49,11 @@ if torch.cuda.is_available():
   torch.backends.cudnn.benchmark = True
   torch.set_float32_matmul_precision('high')
   trainer = pl.Trainer(accelerator='gpu', max_epochs=num_epochs, 
-                       callbacks=[bar(refresh_rate=10)], log_every_n_steps=20)
+                       callbacks=[bar(refresh_rate=1)], log_every_n_steps=20)
 else:
   print('\n--Using CPU for training--\n')
   trainer = pl.Trainer(max_epochs=num_epochs, 
-                       callbacks=[bar(refresh_rate=10)], log_every_n_steps=20)
+                       callbacks=[bar(refresh_rate=1)], log_every_n_steps=20)
 
 #%% Train the model
 print('Training Model...')
@@ -74,24 +74,17 @@ final_val = val_data[-1]
 print('Final Training Loss Error: ', final_train)
 print('Final Validation Loss Error: ', final_val)
 
-
-#% Plot the training and validation loss curves
-train_steps = np.linspace(0, len(train_data), len(train_data))
-val_steps = np.linspace(0, len(train_data), len(val_data))
-plt.plot(train_steps, train_data, label='Training Loss')
-plt.plot(val_steps, val_data, label='Validation Loss')
-plt.xlabel('Training Step')
-plt.ylabel('Loss')
-plt.title('Testing and Validation Loss using Lightning')
-plt.legend()
-plt.show()
-
 #%% Evaluate the performance of the model
 accuracy_ls = [] # list to hold number of predictions we got correct
 trained_model = model.get_model()
-for input, target in test_dataloader:
-    input=input.float().unsqueeze(1)
-    pred = model.forward(input.float())
+print('Running test dataset...')
+length = len(test_dataloader)
+#length = 100
+j = 0
+for x, target in test_dataloader:
+    j = j+1
+    x=x.float().unsqueeze(1)
+    pred = model.forward(x.float())
     pred = pred.squeeze().detach().numpy()
     target = target.detach().numpy()
     
@@ -106,6 +99,23 @@ for input, target in test_dataloader:
           accuracy_ls.append(1)
         else:
           accuracy_ls.append(0)
+    
+    percentage = 100*((j+1)/length)
+    print(f"{percentage:.0f}% done...", end="\r")
 
 ## check testing accuracy
 print(f"Testing dataset accuracy: {100*(sum(accuracy_ls)/len(accuracy_ls)):.2f}%")
+i#nput('Press [Enter] to exit...')
+
+#%%
+
+#% Plot the training and validation loss curves
+train_steps = np.linspace(0, len(train_data), len(train_data))
+val_steps = np.linspace(0, len(train_data), len(val_data))
+plt.plot(train_steps, train_data, label='Training Loss')
+plt.plot(val_steps, val_data, label='Validation Loss')
+plt.xlabel('Training Step')
+plt.ylabel('Loss')
+plt.title('Testing and Validation Loss using Lightning')
+plt.legend()
+plt.show()
