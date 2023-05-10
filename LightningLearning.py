@@ -22,6 +22,7 @@ class StockLightningModule(pl.LightningModule):
         self.test_loss_data = []
         self.test_y_data = []
         self.test_output_data = []
+        self.loss_fn = nn.CrossEntropyLoss()
     
     # Set forward hook; in lightning, forward() defines the prediction
     # and interference actions
@@ -46,7 +47,12 @@ class StockLightningModule(pl.LightningModule):
         x=x.float().unsqueeze(1)
         y=y.float()
         output = self.net(x)
-        loss = nn.functional.mse_loss(output,y.unsqueeze(1))
+        #print('y: ', y.size())
+        #print('output: ', output.squeeze().size())
+
+        loss = self.loss_fn(output.squeeze(),y)
+        #print('val loss: ', loss)
+        #input('[Enter]')
         self.log('val_loss', loss)
         self.val_loss_data.append(loss)
     
@@ -62,7 +68,7 @@ class StockLightningModule(pl.LightningModule):
         x=x.float()
         y=y.float()
         output = self.net(x)
-        loss = nn.functional.mse_loss(output,y)
+        loss = self.loss_fn(output,y)
         self.log("test_loss", loss)
         self.test_loss_data.append(loss)
         self.test_y_data.append(y)
@@ -85,3 +91,6 @@ class StockLightningModule(pl.LightningModule):
     
     def save_model(self, file_name='Model.pt'):
         torch.save(self.net, file_name)
+    
+    def get_model(self):
+        return self.net

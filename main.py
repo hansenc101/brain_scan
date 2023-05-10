@@ -4,14 +4,10 @@ Christopher Hansen
 Artificial Neural Networks
 """
 
-import ImageNet as IN
-from PIL import Image
 import LightningLearning as LL
 import TorchUtils as tu
 import numpy as np
 import pytorch_lightning as pl
-#import wandb
-#from pytorch_lightning.loggers import WandbLogger
 import matplotlib.pyplot as plt
 import torch
 from pytorch_lightning.callbacks import TQDMProgressBar as bar
@@ -33,7 +29,7 @@ y = np.concatenate((y_tumors, y_no_tumors)) # All train y targets
 scan_dataset = tu.ImageDataset(tumors,y)
 
 # set batch_size to 0 to use entire dataset as batch
-batch_size = 24
+batch_size = 32
 brainScanModule = tu.ScanDataModule(scan_dataset, batch_size=batch_size) 
 train_dataloader = brainScanModule.train_dataloader()
 val_dataloader = brainScanModule.val_dataloader()
@@ -41,13 +37,13 @@ test_dataloader = brainScanModule.test_dataloader()
 
 #%% Create the model
 dims = [512, 512] # pixel dimension of the brain scans
-model = LL.StockLightningModule(input_dims=dims, n_channels=1, learning_rate=1e-2)
+model = LL.StockLightningModule(input_dims=dims, n_channels=1, learning_rate=1e-4)
 
 #%% Prepare system - determine if using gpu or cpu
-used_gpu = False
+#used_gpu = False
 num_epochs = 3
 if torch.cuda.is_available():
-  used_gpu = True
+  #used_gpu = True
   print('\n--Using GPU for training--\n')
   torch.set_default_tensor_type(torch.FloatTensor)
   torch.backends.cudnn.benchmark = True
@@ -60,38 +56,23 @@ else:
                        callbacks=[bar(refresh_rate=10)], log_every_n_steps=20)
 
 #%% Train the model
+print('Training Model...')
 trainer.fit(model, train_dataloader, val_dataloader)
 
 #%% Gather loss data
 train_data = model.get_train_loss_data()
 val_data = model.get_val_loss_data()
-#val_pred = model.get_val_predictions()
-#val_target = model.get_val_targets()
 
-if used_gpu:
-    # get loss data off of gpu to cpu and convert to np.arrays
-    train_data = np.array([tensor.cpu().detach().numpy() for tensor in train_data])
-    val_data = np.array([tensor.cpu().detach().numpy() for tensor in val_data])
-    min_train = np.min(train_data) 
-    min_val = np.min(val_data) 
-    final_train = train_data[-1]
-    final_val = val_data[-1]
-    
-    # get prediction and target data off of gpu to cpu and convert to np.arrays
-    #val_pred = np.array([tensor.cpu().detach().numpy() for tensor in val_pred])
-    #val_target = np.array([tensor.cpu().detach().numpy() for tensor in val_target])
-else:
-    # Take loss data and convert to np.arrays
-    train_data = np.array([tensor.detach().numpy() for tensor in train_data])
-    val_data = np.array([tensor.detach().numpy() for tensor in val_data])
-    min_train = np.min(train_data) 
-    min_val = np.min(val_data) 
-    final_train = train_data[-1]
-    final_val = val_data[-1]
-    
-    # get prediction and target data off of gpu to cpu and convert to np.arrays
-    #val_pred = np.array([tensor.detach().numpy() for tensor in val_pred])
-    #val_target = np.array([tensor.detach().numpy() for tensor in val_target])
+# get loss data off of gpu to cpu and convert to np.arrays
+train_data = np.array([tensor.cpu().detach().numpy() for tensor in train_data])
+val_data = np.array([tensor.cpu().detach().numpy() for tensor in val_data])
+min_train = np.min(train_data) 
+min_val = np.min(val_data) 
+final_train = train_data[-1]
+final_val = val_data[-1]
+
+print('Final Training Loss Error: ', final_train)
+print('Final Validation Loss Error: ', final_val)
 
 
 #% Plot the training and validation loss curves
@@ -104,3 +85,27 @@ plt.ylabel('Loss')
 plt.title('Testing and Validation Loss using Lightning')
 plt.legend()
 plt.show()
+
+#%% Evaluate the performance of the model
+accuracy_ls = [] # list to hold number of predictions we got correct
+trained_model = model.get_model()
+for input, target in test_dataloader:
+    input=input.float().unsqueeze(1)
+    pred = model.forward(input.float())
+    pred = pred.squeeze().detach().numpy()
+    target = target.detach().numpy()
+    
+    for i in range(len(pred)):
+        if  pred[i] > 0.5:
+            pred[i] = 1
+        else:
+            pred[i] = 0
+
+        ## check prediction accuracy
+        if pred[i] == target[i]:
+          accuracy_ls.append(1)
+        else:
+          accuracy_ls.append(0)
+
+## check testing accuracy
+print(f"Testing dataset accuracy: {100*(sum(accuracy_ls)/len(accuracy_ls)):.2f}%")
